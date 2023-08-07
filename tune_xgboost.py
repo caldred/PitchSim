@@ -25,7 +25,7 @@ classifier_params = {
     'tree_method':      'gpu_hist',
     'gpu_id':           0,
     'objective':        'binary:logistic',
-    'nthread':          10,
+    'nthread':          -1,
     'importance_type':  'total_gain',
     'validate_parameters': True,
     'eval_metric': 'logloss',

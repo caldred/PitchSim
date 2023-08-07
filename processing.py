@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
-from pandas.api.types import is_numeric_dtype, is_integer_dtype
+from pandas.api.types import is_numeric_dtype, is_integer_dtype, is_float_dtype
 from sklearn import linear_model
 
 @dataclass
@@ -15,12 +15,15 @@ class Filter:
 
 def apply_all_filters(df, filters):
     indices = []
+    na_subset = []
+    for filter in filters:
+        if not filter.keep_na:
+            na_subset.append(filter.col)
+    df = df.dropna(subset=na_subset)
     for filter in filters:
         if is_numeric_dtype(df[filter.col]):
             indices.append((df[filter.col] >= filter.min))
             indices.append((df[filter.col] <= filter.max))
-        if not filter.keep_na:
-            indices.append((~df[filter.col].isna()))
         if filter.include != None:
             indices.append((df[filter.col].isin(filter.include)))
         if filter.exclude != None:
@@ -113,7 +116,7 @@ def save_memory(df, float_overrides=None, category_overrides=None, cols_to_drop=
                     df[col] = df[col].astype('int32')
                 else:
                     df[col] = df[col].astype('int64')
-        if df[col].dtype == 'float64':
+        if is_float_dtype(df[col]):
             df[col] = df[col].astype('float32')
     
     return df
@@ -136,8 +139,8 @@ def calculate_new_features(df):
     
     df['throws_r'] = np.where(df.p_throws == 'R', 1, 0)
     df['stand_r'] = np.where(df.stand == 'R', 1, 0)
-    df['transverse_pit'] = df.transverse*(-2*df.throws_r+1)
-    df['transverse_bat'] = df.transverse*(-2*df.stand_r+1)
+    df['transverse_pit'] = df.transverse*(2*df.throws_r-1)
+    df['transverse_bat'] = df.transverse*(2*df.stand_r-1)
     df['release_pos_x_pit'] = df.release_pos_x*(2*df.throws_r-1)
     df['release_pos_x_bat'] = df.release_pos_x*(2*df.stand_r-1)
     df['plate_x_pit']  = df.plate_x*(2*df.throws_r-1)
@@ -164,7 +167,32 @@ def calculate_new_features(df):
     df['inplay'] = df.contact-df.foul
     df['noswing'] = 1 - df.swing
     df['callstr'] = np.where(df.description == 'called_strike', 1, 0)
-    df['ball'] = df.noswing-df.callstr
+    df['nostrike'] = df.noswing-df.callstr
+    df['hbp'] = np.where(df.events == 'hit_by_pitch', 1, 0)
+    df['ball'] = df.nostrike-df.hbp
+    df['csw'] = df.callstr + df.swstr
+
+    hit_events = ['single', 'double', 'field_error', 'triple']
+    out_events = ['field_out', 'force_out', 'grounded_into_double_play', 'sac_fly', 
+              'sac_bunt', 'double_play', 'fielders_choice', 'fielders_choice_out']
+
+    df['air'] = np.where(df.bb_type.isin(['line_drive', 'fly_ball', 'popup']), 1, 0)
+    df['gb'] = np.where(df.bb_type == 'ground_ball', 1, 0)
+    df['pop'] = np.where(df.bb_type == 'popup', 1, 0)
+    df['fbld'] = np.where(df.bb_type.isin(['line_drive', 'fly_ball']), 1, 0)
+    df['ofgb'] = np.where((df.gb == 1) & (df.hit_location >= 7), 1, 0)
+    df['ifgb'] = np.where((df.gb == 1) & (df.hit_location <= 6), 1, 0)
+    df['hr'] = np.where(df.events == 'home_run', 1, 0)
+    df['fbld_inplay'] = np.where((df.fbld == 1) & (df.hr == 0), 1, 0)
+    df['if1b'] = np.where((df.ifgb == 1) & (df.events.isin(hit_events)), 1, 0)
+    df['gb_out'] = np.where((df.ifgb == 1) & (df.events.isin(out_events)), 1, 0)
+    df['gidp'] = np.where((df.gb_out == 1) & (df.events == 'grounded_into_double_play'), 1, 0)
+    df['air_hit'] = np.where((df.fbld_inplay == 1) & df.events.isin(hit_events), 1, 0)
+    df['air_out'] = np.where((df.fbld_inplay == 1) & df.events.isin(out_events), 1, 0)
+    df['xbh'] = np.where(df.events.isin(['double', 'triple']), 1, 0)
+    df['single'] = np.where(df.events.isin(['single', 'field_error']), 1, 0)
+    df['double'] = np.where(df.events == 'double', 1, 0)
+    df['triple'] = np.where(df.events == 'triple', 1, 0)
 
     df['game_date'] = pd.to_datetime(df.game_date)
     df['game_month'] = pd.Series(np.clip(pd.DatetimeIndex(df['game_date']).month,4,10))
@@ -243,7 +271,7 @@ def calculate_new_features(df):
                                             0, pfd.transverse_pit_diff)
 
     cols = ['game_pk', 'at_bat_number', 'pitch_number', 'speed', 'transverse', 'lift', 'plate_x', 'plate_z']
-    pp = df[cols]
+    pp = df[cols].copy()
     pp['pitch_number'] += 1
     df = df.merge(pp, on=['game_pk', 'at_bat_number', 'pitch_number'], how='left', suffixes=('', '_prior'))
     df['plate_x_prior_pit']  = df.plate_x_prior*(2*df.throws_r-1)
@@ -260,5 +288,6 @@ def calculate_new_features(df):
     df['speed_at_plate'] = np.sqrt((df.vx0 + df.ax*df.time_to_plate)**2 + (df.vy0 + df.ay*df.time_to_plate)**2 + (df.vz0 + df.az*df.time_to_plate)**2)
     df['vert_approach_angle'] = np.arctan((df.vz0 + df.az*df.time_to_plate)/(df.vy0 + df.ay*df.time_to_plate))
     df['horz_approach_angle'] = np.arctan((df.vx0 + df.ax*df.time_to_plate)/(df.vy0 + df.ay*df.time_to_plate))
+    df['vert_approach_angle_adj'] = df.vert_approach_angle + df.plate_z/df.release_pos_y
 
     return df
