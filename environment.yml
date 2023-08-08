@@ -1,0 +1,14 @@
+name: PitchSim
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+    - numpy
+    - pandas
+    - scikit-learn
+    - xgboost
+    - joblib
+    - matplotlib
+    - pybaseball
+    - scikit-fuzzy
+    - hyperopt
