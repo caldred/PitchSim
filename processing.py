@@ -59,6 +59,7 @@ def default_filters():
 
 def save_memory(df, float_overrides=None, category_overrides=None, cols_to_drop=None):
     df = df.drop_duplicates(subset=['game_pk', 'batter', 'pitcher', 'at_bat_number', 'pitch_number'])
+    
     if float_overrides is None:
         float_overrides = [
             'spin_dir',
@@ -180,8 +181,8 @@ def calculate_new_features(df):
     df['gb'] = np.where(df.bb_type == 'ground_ball', 1, 0)
     df['pop'] = np.where(df.bb_type == 'popup', 1, 0)
     df['fbld'] = np.where(df.bb_type.isin(['line_drive', 'fly_ball']), 1, 0)
-    df['ofgb'] = np.where((df.gb == 1) & (df.hit_location >= 7), 1, 0)
-    df['ifgb'] = np.where((df.gb == 1) & (df.hit_location <= 6), 1, 0)
+    df['ofgb'] = np.where((df.gb == 1) & (df.hit_location.isin([7,8,9])), 1, 0)
+    df['ifgb'] = np.where((df.gb == 1) & (df.hit_location.isin([1,2,3,4,5,6])), 1, 0)
     df['hr'] = np.where(df.events == 'home_run', 1, 0)
     df['fbld_inplay'] = np.where((df.fbld == 1) & (df.hr == 0), 1, 0)
     df['if1b'] = np.where((df.ifgb == 1) & (df.events.isin(hit_events)), 1, 0)

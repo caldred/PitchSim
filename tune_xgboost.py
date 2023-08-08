@@ -10,7 +10,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
 classifier_params = {
-    'learning_rate':    hp.lognormal('learning_rate', -2.5, 0.5),
+    'learning_rate':    hp.lognormal('learning_rate', -2.25, 0.25),
     'max_depth':        hp.quniform('max_depth', 3, 12, 1),
     'min_child_weight': hp.qloguniform('min_child_weight', 2, 8, 1),
     'gamma':            hp.lognormal('gamma', 1, 2),
@@ -31,9 +31,11 @@ classifier_params = {
     'eval_metric': 'logloss',
 }
 
-def tune_xgboost(df, target, features, xgb_params=classifier_params, model=XGBClassifier):
+def tune_xgboost(df, target, features, param_dist=classifier_params, model=XGBClassifier, max_evals=30):
 
-    train_size = min(int(len(df)*0.8), 500000)
+    xgb_params = param_dist.copy()
+
+    train_size = min(int(len(df)*0.8), 1000000)
 
     X_train, X_test, y_train, y_test = train_test_split(df[features], df[target], train_size=train_size, random_state=42)
 
@@ -46,7 +48,7 @@ def tune_xgboost(df, target, features, xgb_params=classifier_params, model=XGBCl
         return score
     
     trials = Trials()
-    best = fmin(fn=xgb_eval, space=xgb_params, algo=tpe.suggest, max_evals=100, trials=trials)
+    best = fmin(fn=xgb_eval, space=xgb_params, algo=tpe.suggest, max_evals=max_evals, trials=trials)
 
     for item in best:
         xgb_params[item] = best[item]

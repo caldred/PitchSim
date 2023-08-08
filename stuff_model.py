@@ -44,7 +44,7 @@ def define_cluster_type(df):
             else:
                 cluster_type[key] = 'high-slot fastball'
         elif cluster_type[key] in ['SL', 'ST']:
-            if df[df.cluster == key].transverse_pit.mean() < 5.5:
+            if df[df.cluster == key].transverse_pit.mean()  > -5.5:
                 cluster_type[key] = 'gyro slider'
             else:
                 cluster_type[key] = 'sweeper'
@@ -69,17 +69,24 @@ def assign_fuzzy_clusters(df, features, target):
     pca = PCA(n_components=6)
     sdf_pca = pca.fit_transform(sdf)
 
-    cntr, u, _, _, _, _, _ = fuzz.cluster.cmeans(sdf_pca[np.random.choice(a=len(sdf_pca), size=100000)].T, 
-                                                 c=8, m=1.5, error=1e-3, maxiter=100)
-    u, _, _, _, _, _ = fuzz.cluster.cmeans_predict(test_data=sdf_pca.T, cntr_trained=cntr, 
-                                                   m=1.5, error=1e-3, maxiter=100)
-    u = pd.DataFrame(u.T)
-    u = u.rename(columns={0:'cluster1', 1:'cluster2', 2:'cluster3', 3:'cluster4',
-                           4:'cluster5', 5:'cluster6', 6:'cluster7', 7:'cluster8'})
+    while True:
+        cntr, _, _, _, _, _, _ = fuzz.cluster.cmeans(sdf_pca[np.random.choice(a=len(sdf_pca), size=100000)].T, 
+                                                     c=8, m=1.5, error=1e-3, maxiter=100)
+        u, _, _, _, _, _ = fuzz.cluster.cmeans_predict(test_data=sdf_pca.T, cntr_trained=cntr, 
+                                                       m=1.5, error=1e-3, maxiter=100)
+        u = pd.DataFrame(u.T)
+        u = u.rename(columns={0:'cluster1', 1:'cluster2', 2:'cluster3', 3:'cluster4',
+                              4:'cluster5', 5:'cluster6', 6:'cluster7', 7:'cluster8'})
 
+        cols = ['pitch_type', 'transverse_pit', 'release_pos_z'] + [x for x in df.columns if 'cluster' in x]
+        temp = pd.concat([df[cols], u], axis=1)
+        temp['cluster'] = temp[[x for x in temp.columns if 'cluster' in x]].idxmax(axis=1)
+        cluster_type = define_cluster_type(temp)
+        print(cluster_type)
+        if len(set(cluster_type.values())) == 8:
+            del temp
+            break
     df = pd.concat([df, u], axis=1)
-    df['cluster'] = df[[x for x in df.columns if 'cluster' in x]].idxmax(axis=1)
-    cluster_type = define_cluster_type(df)
     df = df.rename(columns=cluster_type)
     df['cluster'] = df[cluster_names].idxmax(axis=1)
 
@@ -191,6 +198,8 @@ def simulate_pitches(df, batch_size, n_batches, dist, features, rv, xgb_models, 
             ds = df[df.game_year==year].sample(batch_size).copy()
         
         res = {}
+        res['R'] = []
+        res['L'] = []
 
         for index, pitch in ds.iterrows():
             print(index)
@@ -198,12 +207,10 @@ def simulate_pitches(df, batch_size, n_batches, dist, features, rv, xgb_models, 
                 stand_r = 1 if bat_side == 'R' else 0
                 throws_r = 1 if pitch.p_throws == 'R' else 0
 
-                p = np.zeros(len(dist(bat_side, pitch.p_throws, cluster_names[0])))
+                p = np.zeros(len(dist[(bat_side, pitch.p_throws, cluster_names[0])]))
                 
                 for cluster, weight in zip(cluster_names, pitch[cluster_names]):
                     p += dist[(bat_side, pitch.p_throws, cluster)] * weight
-
-                print(sum)
 
                 balls = []
                 strikes = []
