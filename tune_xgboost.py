@@ -10,9 +10,9 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
 classifier_params = {
-    'learning_rate':    hp.lognormal('learning_rate', -2.25, 0.25),
+    'learning_rate':    hp.lognormal('learning_rate', -2.4, 0.3),
     'max_depth':        hp.quniform('max_depth', 3, 12, 1),
-    'min_child_weight': hp.qloguniform('min_child_weight', 2, 8, 1),
+    'min_child_weight': hp.qloguniform('min_child_weight', 2, 7, 1),
     'gamma':            hp.lognormal('gamma', 1, 2),
     'colsample_bytree': 1,
     'colsample_bylevel':1,
@@ -31,7 +31,29 @@ classifier_params = {
     'eval_metric': 'logloss',
 }
 
-def tune_xgboost(df, target, features, param_dist=classifier_params, model=XGBClassifier, max_evals=30):
+distill_params = {
+    'learning_rate':    0.1,
+    'max_depth':        15,
+    'min_child_weight': hp.qloguniform('min_child_weight', 1, 4, 1),
+    'gamma':            0,
+    'colsample_bytree': 1,
+    'colsample_bylevel':1,
+    'colsample_bynode': 1,
+    'subsample':        0.8,
+    'reg_alpha':        0,
+    'reg_lambda':       1,
+    'n_estimators':     100,
+    'sampling_method':  'uniform',
+    'tree_method':      'hist',
+    'gpu_id':           0,
+    'objective':        'reg:squarederror',
+    'nthread':          10,
+    'importance_type':  'total_gain',
+    'validate_parameters': True,
+    'eval_metric': 'rmse',
+}
+
+def tune_xgboost(df, target, features, param_dist=classifier_params, model=XGBClassifier, scoring='neg_log_loss', max_evals=30):
 
     xgb_params = param_dist.copy()
 
@@ -44,7 +66,7 @@ def tune_xgboost(df, target, features, param_dist=classifier_params, model=XGBCl
         params['min_child_weight'] = int(params['min_child_weight'])
         clf = model(**params)
         cv_splitter = KFold(n_splits=5, random_state=42, shuffle=True)
-        score = -cross_val_score(clf, X, y, scoring='neg_log_loss', cv=cv_splitter).mean()
+        score = -cross_val_score(clf, X, y, scoring=scoring, cv=cv_splitter).mean()
         return score
     
     trials = Trials()
@@ -58,7 +80,7 @@ def tune_xgboost(df, target, features, param_dist=classifier_params, model=XGBCl
     xgb_params['learning_rate'] *= 0.1
     xgb_params['n_estimators'] *= 10
 
-    xgb_model = xgb.XGBClassifier(**xgb_params)
+    xgb_model = model(**xgb_params)
     xgb_model.fit(df[features], df[target])
 
     return xgb_model

@@ -6,8 +6,9 @@ from sklearn.discriminant_analysis import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KernelDensity
 from joblib import Parallel, delayed
+from xgboost import XGBRegressor
 
-from tune_xgboost import tune_xgboost
+from tune_xgboost import tune_xgboost, distill_params
 
 grid_x = np.linspace(-2.7, 2.7, 28)
 grid_z = np.linspace(-1, 5.4, 33)
@@ -195,7 +196,7 @@ def simulate_pitches(df, batch_size, n_batches, dist, features, rv, xgb_models, 
         if year is not None:
             ds = df[df.game_year==year].sample(batch_size).copy()
         else:
-            ds = df[df.game_year==year].sample(batch_size).copy()
+            ds = df.sample(batch_size).copy()
         
         res = {}
         res['R'] = []
@@ -280,7 +281,15 @@ def simulate_pitches(df, batch_size, n_batches, dist, features, rv, xgb_models, 
                 
                 res[bat_side].append(sim[['x_' + event for event in events + ['run_value']]].sum())
 
-            dsr = pd.concat([ds.reset_index(drop=True), pd.DataFrame(res['R'])], axis=1)
-            dsl = pd.concat([ds.reset_index(drop=True), pd.DataFrame(res['L'])], axis=1)
-            dsr.to_parquet(f"{path}sim_vsR_batch{i+1}.parquet")
-            dsl.to_parquet(f"{path}sim_vsL_batch{i+1}.parquet")
+        dsr = pd.concat([ds.reset_index(drop=True), pd.DataFrame(res['R'])], axis=1)
+        dsl = pd.concat([ds.reset_index(drop=True), pd.DataFrame(res['L'])], axis=1)
+        dsr.to_parquet(f"{path}sim_vsR_batch{i+1}.parquet")
+        dsl.to_parquet(f"{path}sim_vsL_batch{i+1}.parquet")
+    
+def train_distilled_models(df, features, events):
+    event_xgbs = {}
+    for event in events:
+        event_xgbs[event] = tune_xgboost(df, event, features, param_dist=distill_params, max_evals=10,
+                                         model=XGBRegressor, scoring='neg_mean_squared_error')
+    
+    return event_xgbs
