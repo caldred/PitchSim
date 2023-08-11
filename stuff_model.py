@@ -285,6 +285,8 @@ def simulate_pitches(df, batch_size, n_batches, dist, features, rv, xgb_models, 
         dsl = pd.concat([ds.reset_index(drop=True), pd.DataFrame(res['L'])], axis=1)
         dsr.to_parquet(f"{path}sim_vsR_batch{i+1}.parquet")
         dsl.to_parquet(f"{path}sim_vsL_batch{i+1}.parquet")
+
+    return sim
     
 def train_distilled_models(df, features, events):
     event_xgbs = {}
@@ -293,3 +295,43 @@ def train_distilled_models(df, features, events):
                                          model=XGBRegressor, scoring='neg_mean_squared_error')
     
     return event_xgbs
+
+def make_distilled_predictions(df, distill_features, events, vsR_models, vsL_models, game_year=None):
+    for event in events:
+        print(event)
+        df[event + '_vsR'] = vsR_models[event].predict(df[distill_features])
+        df[event + '_vsL'] = vsL_models[event].predict(df[distill_features])
+
+    event_sum_R = df[[event + '_vsR' for event in events if event != 'x_run_value']].sum(axis=1)
+    event_sum_L = df[[event + '_vsL' for event in events if event != 'x_run_value']].sum(axis=1)
+    for event in events:
+        if event != 'x_run_value':
+            df[event + '_vsR'] /= event_sum_R
+            df[event + '_vsL'] /= event_sum_L
+    if game_year is None:
+        vsR_avg = df.x_run_value_vsR.mean()
+        vsL_avg = df.x_run_value_vsL.mean()
+    else:
+        vsR_avg = df[df.game_year == game_year].x_run_value_vsR.mean()
+        vsL_avg = df[df.game_year == game_year].x_run_value_vsL.mean()
+    df['x_run_value_vsR'] -= vsR_avg
+    df['x_run_value_vsL'] -= vsL_avg
+
+    return df
+
+def generate_results_csv(df, distill_features):
+    group_cols = ['player_name', 'pitch_type', 'game_year']
+    cols = group_cols + distill_features + [x for x in df.columns if x.startswith('x_')]
+    grp_filt = df[cols].groupby(by=group_cols).filter(lambda x: len(x) >= 10)
+    results = grp_filt[cols].groupby(by=group_cols).mean().dropna().reset_index()
+    res_count = grp_filt[cols].groupby(by=group_cols).speed.count()
+    res_count = res_count.reset_index()
+    res_count = res_count.rename(columns={'speed':'pitches'})
+    results  = results.merge(res_count, on=['player_name', 'pitch_type', 'game_year'])
+    results['speed'] *= 0.681818
+    results['speed_diff'] *= 0.681818
+    results['xRV100_vsR'] = results.x_run_value_vsR*100
+    results['xRV100_vsL'] = results.x_run_value_vsL*100
+    results['xRV100'] = results.xRV100_vsR*0.6 + results.xRV100_vsL*0.4
+    results[['player_name', 'pitch_type', 'game_year', 'pitches', 'xRV100_vsR', 'xRV100_vsL', 'xRV100'] + 
+            [x for x in df.columns if (x.startswith('x_'))] + distill_features].to_csv('results.csv', index=False)
