@@ -12,7 +12,7 @@ PitchSim is an advanced pitch analysis framework that leverages machine learning
 * **Model Distillation:** Offers efficient simulation through model approximation.
 
 ### Presentation
-[Saberseminar 2023 Slides](https://docs.google.com/presentation/d/1LtN8Vc_66ec7wGFujLar18oyE8EFrZFUpTanj_UYAFI/edit?usp=sharing)
+Additional information can be found in the [Saberseminar 2023 Slides](https://docs.google.com/presentation/d/1LtN8Vc_66ec7wGFujLar18oyE8EFrZFUpTanj_UYAFI/edit?usp=sharing)
 
 ## Installation
 1. Clone the repository:
