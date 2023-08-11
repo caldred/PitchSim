@@ -11,6 +11,9 @@ PitchSim is an advanced pitch analysis framework that leverages machine learning
 * **Bias Correction:** Addresses selection bias by fixing usage and command for each cluster
 * **Model Distillation:** Offers efficient simulation through model approximation.
 
+### Presentation
+[Saberseminar 2023 Slides](https://docs.google.com/presentation/d/1LtN8Vc_66ec7wGFujLar18oyE8EFrZFUpTanj_UYAFI/edit?usp=sharing)
+
 ## Installation
 1. Clone the repository:
 `git clone https://github.com/caldred/PitchSim.git`
