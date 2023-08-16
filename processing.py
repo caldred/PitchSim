@@ -339,13 +339,13 @@ def calculate_new_features(df: pd.DataFrame) -> pd.DataFrame:
     df['plate_x_prior_bat_diff'] = df.plate_x_bat - df.plate_x_prior_bat
     df['plate_z_prior_diff'] = df.plate_z - df.plate_z_prior
 
-    # Calculate the time it takes for the pitch to reach home plate 
+    # Calculate the time it takes for the pitch to reach home plate
     df['time_to_plate'] = abs((df.vy0 + np.sqrt(df.vy0**2 - 2 * df.ay * df.release_pos_y)) / df.ay)
+    
+    # Calculate the speed and vertical and horizontal approach angles of the pitch as it reaches the batter
     df['speed_at_plate'] = np.sqrt((df.vx0 + df.ax*df.time_to_plate)**2 + 
                                    (df.vy0 + df.ay*df.time_to_plate)**2 + 
                                    (df.vz0 + df.az*df.time_to_plate)**2)
-    
-    # Calculate the vertical and horizontal approach angles of the pitch as it reaches the batter
     df['vert_approach_angle'] = np.arctan((df.vz0 + df.az*df.time_to_plate) / 
                                           (df.vy0 + df.ay*df.time_to_plate))
     df['horz_approach_angle'] = np.arctan((df.vx0 + df.ax*df.time_to_plate) / 
