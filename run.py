@@ -83,5 +83,5 @@ def pipeline(path: str, year: Optional[int] = None):
     stuff.generate_results_csv(df, distill_features)
 
 # Call the pipeline
-path = 'test/'
+path = 'data/'
 pipeline(path, year=2022)
