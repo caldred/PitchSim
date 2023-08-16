@@ -5,7 +5,7 @@ from data_loader import PitchDataLoader
 import processing as prc
 import stuff_model as stuff
 
-path = 'data/'
+path = 'test/'
 
 pdl = PitchDataLoader(path=path)
 pdl.load_new_data()
@@ -53,11 +53,13 @@ for i in range(n_batches):
     simL.append(pd.read_parquet(f'data/sim_vsL_batch{i+1}.parquet'))
 simR = pd.concat(simR).reset_index(drop=True)
 simL = pd.concat(simL).reset_index(drop=True)
+simR.to_parquet(f'{path}sim_vsR.parquet')
+simL.to_parquet(f'{path}sim_vsL.parquet')
 
 distill_features = ['speed', 'speed_diff', 'lift', 'lift_diff', 
                     'transverse', 'transverse_pit', 'transverse_pit_diff', 
                     'release_pos_x', 'release_pos_x_pit', 'release_pos_y', 'release_pos_z', 
-                    'vert_approach_angle_adj'] + stuff.cluster_names
+                    'vert_approach_angle_adj']
 events = [x for x in simR.columns if x.startswith('x_')]
 vsR_models = stuff.train_distilled_models(simR, distill_features, events)
 vsL_models = stuff.train_distilled_models(simL, distill_features, events)

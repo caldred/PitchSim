@@ -321,7 +321,7 @@ def make_distilled_predictions(df, distill_features, events, vsR_models, vsL_mod
 
 def generate_results_csv(df, distill_features):
     group_cols = ['player_name', 'pitch_type', 'game_year']
-    cols = group_cols + distill_features + [x for x in df.columns if x.startswith('x_')]
+    cols = group_cols + distill_features + cluster_names + [x for x in df.columns if x.startswith('x_')]
     grp_filt = df[cols].groupby(by=group_cols).filter(lambda x: len(x) >= 10)
     results = grp_filt[cols].groupby(by=group_cols).mean().dropna().reset_index()
     res_count = grp_filt[cols].groupby(by=group_cols).speed.count()
