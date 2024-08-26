@@ -22,8 +22,8 @@ class PitchDataLoader:
         parquet_path = f'{self.path}pitch_data.parquet'
         self.df = pd.read_parquet(parquet_path).reset_index(drop=True) if os.path.exists(parquet_path) else pd.DataFrame()
         
-        self.start_date = pd.to_datetime(start_date)
-        self.end_date = pd.to_datetime(end_date)
+        self.start_date = pd.to_datetime(start_date).date()
+        self.end_date = pd.to_datetime(end_date).date()
         
     def load_new_data(self) -> None:
         """

@@ -11,8 +11,8 @@ class Filter:
     Class representing a filter to be applied to a dataframe column.
     """
     col: str
-    min: float = np.NINF
-    max: float = np.PINF
+    min: float = -np.inf
+    max: float = np.inf
     keep_na: bool = True
     include: Optional[Union[str, List[str]]] = None
     exclude: Optional[Union[str, List[str]]] = None

@@ -7,6 +7,7 @@ from sklearn.neighbors import KernelDensity
 from joblib import Parallel, delayed
 from xgboost import XGBRegressor
 from tune_xgboost import tune_xgboost, distill_params
+from processing import save_memory
 from typing import List, Dict, Tuple, Optional
 
 # Predefined constants for grid dimensions and events
@@ -391,9 +392,12 @@ def simulate_pitches(df: pd.DataFrame, batch_size: int, n_batches: int, dist: di
                 # Merge with run value data
                 sim = sim.merge(rv, on=['balls', 'strikes'], how='inner')
 
+                for feature in features:
+                    sim[feature] = sim[feature].astype(float)
+
                 # Predict outcomes using the trained models 
-                def get_predictions(df, model, target):
-                    return {target: model.predict_proba(df[features])[:, 1]}
+                def get_predictions(sim, model, target):
+                    return {target: model.predict_proba(sim[features])[:, 1]}
 
                 results = Parallel(n_jobs=-1)(delayed(get_predictions)(sim, xgb_models[target], target) for target in targets)
 
@@ -518,11 +522,11 @@ def generate_results_csv(df: pd.DataFrame,
     cols = group_cols + distill_features + cluster_names + [x for x in df.columns if x.startswith('x_')]
 
     # Filter out groups with fewer than 10 entries
-    grp_filt = df[cols].groupby(by=group_cols).filter(lambda x: len(x) >= 10)
+    grp_filt = df[cols].groupby(by=group_cols, observed=False).filter(lambda x: len(x) >= 10)
 
     # Aggregate the data
-    results = grp_filt[cols].groupby(by=group_cols).mean().dropna().reset_index()
-    res_count = grp_filt[cols].groupby(by=group_cols).speed.count().reset_index().rename(columns={'speed':'pitches'})
+    results = grp_filt[cols].groupby(by=group_cols, observed=False).mean().dropna().reset_index()
+    res_count = grp_filt[cols].groupby(by=group_cols, observed=False).speed.count().reset_index().rename(columns={'speed':'pitches'})
     
     results  = results.merge(res_count, on=['player_name', 'pitch_type', 'game_year'])
 
@@ -535,4 +539,4 @@ def generate_results_csv(df: pd.DataFrame,
 
     # Save results to CSV
     results[['player_name', 'pitch_type', 'game_year', 'pitches', 'xRV100_vsR', 'xRV100_vsL', 'xRV100'] + 
-            [x for x in df.columns if (x.startswith('x_'))] + distill_features + cluster_names]
+            [x for x in df.columns if (x.startswith('x_'))] + distill_features + cluster_names].to_csv('results.csv', index=False)
