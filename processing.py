@@ -103,8 +103,10 @@ def save_memory(df: pd.DataFrame, float_overrides: Optional[List[str]] = None,
             'woba_denom', 
             'babip_value', 
             'iso_value', 
-            'spin_axis'
-        ]
+            'spin_axis',
+            'pitcher_days_since_prev_game',
+            'batter_days_since_prev_game',
+    ]
     if category_overrides is None:
         category_overrides =  [
             'hit_location',

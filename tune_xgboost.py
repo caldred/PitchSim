@@ -8,7 +8,7 @@ from sklearn.model_selection import cross_val_predict, cross_val_score
 
 # Define the hyperparameter space for the XGBoost classifier
 classifier_params = {
-    'learning_rate':    hp.lognormal('learning_rate', -2.4, 0.3),
+    'learning_rate':    hp.lognormal('learning_rate', -3, 0.3),
     'max_depth':        hp.quniform('max_depth', 3, 12, 1),
     'min_child_weight': hp.qloguniform('min_child_weight', 2, 7, 1),
     'gamma':            hp.lognormal('gamma', 1, 2),
@@ -18,10 +18,10 @@ classifier_params = {
     'subsample':        0.2,
     'reg_alpha':        0,
     'reg_lambda':       1,
-    'n_estimators':     100,
+    'n_estimators':     200,
     'sampling_method':  'gradient_based',
     'tree_method':      'hist',
-    'device':           'cuda',
+    'gpu_id':           1,
     'objective':        'binary:logistic',
     'nthread':          -1,
     'importance_type':  'total_gain',
@@ -44,7 +44,7 @@ distill_params = {
     'n_estimators':     100,
     'sampling_method':  'uniform',
     'tree_method':      'hist',
-    'gpu_id':           0,
+    'gpu_id':           1,
     'objective':        'reg:squarederror',
     'nthread':          10,
     'importance_type':  'total_gain',
@@ -76,9 +76,12 @@ def tune_xgboost(df: pd.DataFrame, target: str, features: list,
     # Make a copy of the hyperparameter distribution
     xgb_params = param_dist.copy()
 
-    # Split the dataset into training and test sets. Use the smaller of 80% of the data or 1,000,000 records for training.
-    train_size = min(int(len(df) * 0.8), 1000000)
-    X_train, X_test, y_train, y_test = train_test_split(df[features], df[target], train_size=train_size, random_state=42)
+    if len(df) < 2000000:
+        X_train = df[features]
+        y_train = df[target]
+    else:
+        train_size = 2000000
+        X_train, _, y_train, _ = train_test_split(df[features], df[target], train_size=train_size, random_state=42)
 
     def xgb_eval(params: dict, X: pd.DataFrame = X_train, y: pd.Series = y_train) -> float:
         """
@@ -118,8 +121,8 @@ def tune_xgboost(df: pd.DataFrame, target: str, features: list,
     xgb_params['min_child_weight'] = int(xgb_params['min_child_weight'])
     
     # Adjust the learning rate and number of estimators for final training
-    xgb_params['learning_rate'] *= 0.1
-    xgb_params['n_estimators'] *= 10
+    xgb_params['learning_rate'] *= 0.2
+    xgb_params['n_estimators'] *= 5
 
     # Train the model with the optimized hyperparameters on the entire dataset
     xgb_model = model(**xgb_params)
